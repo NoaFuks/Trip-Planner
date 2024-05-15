@@ -27,27 +27,27 @@ def get_trip_suggestions(trip_month, trip_type):
         'Content-Type': 'application/json'
     }
 
-    # Construct the messages
     messages = [
         {"role": "system", "content": "You are a travel guide."},
         {"role": "user",
-         "content": f"Suggest 5 places in the world to travel to for a {trip_type} trip during the month number {trip_month}."}
+         "content": f"List exactly 5 places ideal for a {trip_type} trip in July, focusing on the names of the places and countries only."}
     ]
 
     data = {
-        'model': 'gpt-3.5-turbo',  # Ensure this is the latest model or the one best suited for your task
+        'model': 'gpt-3.5-turbo',
         'messages': messages,
-        'max_tokens': 300
+        'max_tokens': 250  # Adjusted token limit
     }
 
     response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data)
 
     if response.status_code == 200:
-        suggestions = response.json()['choices'][0]['message']['content'].strip().split('\n')
+        api_content = response.json()['choices'][0]['message']['content']
+        suggestions = api_content.strip().split('\n')  # Adjusted to split by single newline
         refined_suggestions = []
         for suggestion in suggestions:
-            # Use regular expression to find the pattern '[Place], [Country]'
-            match = re.search(r"^(?:\d+\.\s*)([\w\s]+,\s*[\w\s]+):", suggestion)
+            # Update regex to capture place and country without additional formatting
+            match = re.search(r"^\d+\.\s*(.+)$", suggestion)  # Simplified to capture the rest of the line
             if match:
                 refined_suggestions.append(match.group(1).strip())
         return refined_suggestions
