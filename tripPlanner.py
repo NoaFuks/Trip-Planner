@@ -72,49 +72,6 @@ def get_airport_code(city_name):
     return None
 
 
-# def find_flights(serpapi_key, departure_date, return_date, destination):
-#     # Splitting destination to extract the city name
-#     city_name, _ = destination.split(',', 1)  # Correctly split and ignore the country part
-#     print(f"Fetching airport code for {city_name}")
-#
-#     airport_code = get_airport_code(city_name)
-#
-#     if not airport_code:
-#         print(f"No valid airport code found for {city_name}, checked as: '{city_name}'")
-#         print("Unable to find a direct flight to this city. Consider alternative destinations or check nearby major airports.")
-#         return  # Skip this destination if no airport code found
-#
-#     print(f"Found airport code: {airport_code} for {city_name}")
-#     url = "https://serpapi.com/search"
-#     params = {
-#         "engine": "google_flights",
-#         "api_key": serpapi_key,
-#         "departure_id": "TLV",
-#         "arrival_id": airport_code,
-#         "outbound_date": departure_date,
-#         "type": 2  # Assuming type 2 is round trip (check API documentation)
-#     }
-#
-#     response = requests.get(url, params=params)
-#     if response.status_code == 200:
-#         data = response.json()
-#         if 'best_flights' in data and data['best_flights']:
-#             flights = data['best_flights'][0]['flights']
-#             for flight in flights:
-#                 departure_name = flight['departure_airport']['name']
-#                 departure_time = flight['departure_airport']['time']
-#                 arrival_name = flight['arrival_airport']['name']
-#                 arrival_time = flight['arrival_airport']['time']
-#                 price = data['best_flights'][0]['price']
-#                 print(f"Departure Airport: {departure_name} at {departure_time}")
-#                 print(f"Arrival Airport: {arrival_name} at {arrival_time}")
-#                 print(f"Price: ${price}\n")
-#         else:
-#             print("No flight data available for", destination)
-#     else:
-#         print(f"Failed to fetch flights: {response.status_code}, {response.text}")
-
-
 def find_flights(serpapi_key, departure_date, return_date, destination):
     # Splitting destination to extract the city name
     city_name, _ = destination.split(',', 1)  # Correctly split and ignore the country part
