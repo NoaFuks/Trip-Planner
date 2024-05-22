@@ -58,7 +58,7 @@ def get_airport_code(city_name):
     return None
 
 
-def find_flights(serpapi_key, departure_date, return_date, destination, round_trip=True):
+def find_flights(serpapi_key, departure_date, return_date, destination):
     city_name, _ = destination.split(',', 1)
     print(f"Fetching airport code for {city_name}")
     airport_code = get_airport_code(city_name)
@@ -153,12 +153,54 @@ def find_cheapest_return_flight(serpapi_key, return_date, destination):
         print(f"Failed to fetch return flights: {response.status_code}, {response.text}")
 
 
+def find_most_expensive_hotel_within_budget(location, budget, check_in_date, check_out_date, serpapi_key):
+    num_nights = (check_out_date - check_in_date).days
+    url = "https://serpapi.com/search"
+    params = {
+        "engine": "google_hotels",
+        "q": f"hotels in {location}",
+        "check_in_date": check_in_date.strftime('%Y-%m-%d'),
+        "check_out_date": check_out_date.strftime('%Y-%m-%d'),
+        "adults": "1",
+        "currency": "USD",
+        "api_key": serpapi_key
+    }
+
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        results = response.json()
+
+        if "properties" in results:
+            properties = results["properties"]
+            most_expensive_hotel = None
+            highest_total_price = -1
+
+            for property in properties:
+                price_info = property.get('rate_per_night', {}).get('extracted_lowest', '0')
+                nightly_price = float(price_info)
+
+                total_price = nightly_price * num_nights
+
+                if total_price > highest_total_price and total_price <= budget:
+                    highest_total_price = total_price
+                    most_expensive_hotel = (
+                        f"Hotel Name: {property.get('name', 'Name not provided')}\n"
+                        # f"Hotel Address: {property.get('address', 'Address not provided')}\n"
+                        f"Price Per Night: ${nightly_price:.2f}\n"
+                        f"Total Price: ${total_price:.2f}"
+                    )
+
+            return most_expensive_hotel if most_expensive_hotel else "No hotels found within budget."
+        else:
+            return "No properties found in the response."
+    else:
+        return f"Failed to fetch hotels: {response.status_code}, {response.text}"
 
 def main():
     start_date, end_date, budget, trip_type = get_user_input()
     trip_month = start_date.month
     openai_api_key = 'sk-proj-xKbefkCYXVMRITYejkNmT3BlbkFJ00z2ZA8hwmnCqIBxL76q'
-    serpapi_key = '1afab3b456560bb8cf70a1d6474045e9c512fc38ec8a6abd34e39e242d140d5b'
+    serpapi_key = 'be2a08a90dda2768092654e8bdb0673c8a203c18e075f24db1f416ed8d157b27'
 
     if not openai_api_key or not serpapi_key:
         print("API keys are not set.")
@@ -170,17 +212,12 @@ def main():
         return
 
     print(f"\nSuggested destinations for a {trip_type} trip in month {trip_month}:")
-    first = True
     for place in suggestions:
-        if not first:
-            print("\n" + "-" * 40 + "\n")
-        else:
-            first = False
-
+        print("\n" + "-" * 40 + "\n")
         print(place)
         if ',' in place:
-            # Calculate the budget used for flights and then find a hotel
-            remaining_budget = budget  # Initialize with the total budget
+            remaining_budget = budget
+
             outbound_flight_cost = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), place)
             if outbound_flight_cost is not None:
                 remaining_budget -= outbound_flight_cost
@@ -188,15 +225,14 @@ def main():
             return_flight_cost = find_cheapest_return_flight(serpapi_key, end_date.strftime('%Y-%m-%d'), place)
             if return_flight_cost is not None:
                 remaining_budget -= return_flight_cost
+
+            if remaining_budget > 0:
+                hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date, serpapi_key)
+                print(f"{hotel_info}")
+            else:
+                print(f"Remaining budget (${remaining_budget:.2f}) is not sufficient for accommodation.")
         else:
             print(f"Skipping {place} due to format issues.")
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
