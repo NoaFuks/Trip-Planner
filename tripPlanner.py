@@ -60,15 +60,15 @@ def get_airport_code(city_name):
 
 def find_flights(serpapi_key, departure_date, return_date, destination):
     city_name, _ = destination.split(',', 1)
-    print(f"Fetching airport code for {city_name}")
+    # print(f"Fetching airport code for {city_name}")
     airport_code = get_airport_code(city_name)
 
     if not airport_code:
-        print(f"No valid airport code found for {city_name}, checked as: '{city_name}'")
-        print("Unable to find a direct flight to this city. Consider alternative destinations or check nearby major airports.")
-        return
+        # print(f"No valid airport code found for {city_name}, checked as: '{city_name}'")
+        # print("Unable to find a direct flight to this city. Consider alternative destinations or check nearby major airports.")
+        return None
 
-    print(f"Found airport code: {airport_code} for {city_name}")
+    # print(f"Found airport code: {airport_code} for {city_name}")
     url = "https://serpapi.com/search"
     params = {
         "engine": "google_flights",
@@ -83,40 +83,29 @@ def find_flights(serpapi_key, departure_date, return_date, destination):
     if response.status_code == 200:
         data = response.json()
         if 'best_flights' in data and data['best_flights']:
-            cheapest_flight = None
-            lowest_price = float('inf')
-
-            for flight in data['best_flights']:
-                if flight['price'] < lowest_price:
-                    cheapest_flight = flight
-                    lowest_price = flight['price']
-
-            if cheapest_flight:
-                departure_name = cheapest_flight['flights'][0]['departure_airport']['name']
-                departure_time = cheapest_flight['flights'][0]['departure_airport']['time']
-                arrival_name = cheapest_flight['flights'][0]['arrival_airport']['name']
-                arrival_time = cheapest_flight['flights'][0]['arrival_airport']['time']
-                price = cheapest_flight['price']
-                print(f"Cheapest Flight: {departure_name} at {departure_time} to {arrival_name} at {arrival_time}")
-                print(f"Price: ${price}\n")
-            else:
-                print("No flight data available for", destination)
+            cheapest_flight = min(data['best_flights'], key=lambda f: f['price'])
+            price = cheapest_flight['price']
+            print(f"Cheapest Flight: {cheapest_flight['flights'][0]['departure_airport']['name']} at {cheapest_flight['flights'][0]['departure_airport']['time']} to {cheapest_flight['flights'][0]['arrival_airport']['name']} at {cheapest_flight['flights'][0]['arrival_airport']['time']}")
+            print(f"Price: ${price}\n")
+            return price
         else:
-            print("No flight data available for", destination)
+            # print("No flight data available for", destination)
+            return None
     else:
-        print(f"Failed to fetch flights: {response.status_code}, {response.text}")
+        # print(f"Failed to fetch flights: {response.status_code}, {response.text}")
+        return None
 
 
 def find_cheapest_return_flight(serpapi_key, return_date, destination):
     city_name, _ = destination.split(',', 1)
-    print(f"Fetching airport code for return flight from {city_name}")
+    # print(f"Fetching airport code for return flight from {city_name}")
     airport_code = get_airport_code(city_name)
 
     if not airport_code:
-        print(f"No valid airport code found for {city_name}")
-        return
+        # print(f"No valid airport code found for {city_name}")
+        return None
 
-    print(f"Found airport code: {airport_code} for {city_name}")
+    # print(f"Found airport code: {airport_code} for {city_name}")
     url = "https://serpapi.com/search"
     params = {
         "engine": "google_flights",
@@ -132,25 +121,17 @@ def find_cheapest_return_flight(serpapi_key, return_date, destination):
         data = response.json()
         flights = data.get('best_flights', [])
         if flights:
-            direct_flights = [flight for flight in flights if len(flight['flights']) == 1]
-            if direct_flights:
-                cheapest_direct_flight = sorted(direct_flights, key=lambda x: x['price'])[0]
-            else:
-                cheapest_direct_flight = sorted(flights, key=lambda x: x['price'])[0]  # fallback to connecting flights
-
-            flight_details = cheapest_direct_flight['flights']
+            cheapest_direct_flight = min(flights, key=lambda x: x['price'])
             total_price = cheapest_direct_flight['price']
-
-            for leg in flight_details:
-                departure = leg['departure_airport']['name']
-                departure_time = leg['departure_airport']['time']
-                arrival = leg['arrival_airport']['name']
-                arrival_time = leg['arrival_airport']['time']
-                print(f"Flight found: Departure {departure} at {departure_time} to {arrival} at {arrival_time} for ${total_price}")
+            print(f"Flight found: Departure {cheapest_direct_flight['flights'][0]['departure_airport']['name']} at {cheapest_direct_flight['flights'][0]['departure_airport']['time']} to {cheapest_direct_flight['flights'][0]['arrival_airport']['name']} at {cheapest_direct_flight['flights'][0]['arrival_airport']['time']} for ${total_price}")
+            return total_price
         else:
-            print("No return flight data available for", destination)
+            # print("No return flight data available for", destination)
+            return None
     else:
-        print(f"Failed to fetch return flights: {response.status_code}, {response.text}")
+        # print(f"Failed to fetch return flights: {response.status_code}, {response.text}")
+        return None
+
 
 
 def find_most_expensive_hotel_within_budget(location, budget, check_in_date, check_out_date, serpapi_key):
@@ -169,7 +150,6 @@ def find_most_expensive_hotel_within_budget(location, budget, check_in_date, che
     response = requests.get(url, params=params)
     if response.status_code == 200:
         results = response.json()
-
         if "properties" in results:
             properties = results["properties"]
             most_expensive_hotel = None
@@ -178,61 +158,127 @@ def find_most_expensive_hotel_within_budget(location, budget, check_in_date, che
             for property in properties:
                 price_info = property.get('rate_per_night', {}).get('extracted_lowest', '0')
                 nightly_price = float(price_info)
-
                 total_price = nightly_price * num_nights
 
-                if total_price > highest_total_price and total_price <= budget:
+                if total_price > highest_total_price:
                     highest_total_price = total_price
                     most_expensive_hotel = (
                         f"Hotel Name: {property.get('name', 'Name not provided')}\n"
-                        # f"Hotel Address: {property.get('address', 'Address not provided')}\n"
                         f"Price Per Night: ${nightly_price:.2f}\n"
-                        f"Total Price: ${total_price:.2f}"
+                        f"Total Price for {num_nights} nights: ${total_price:.2f}"
                     )
 
-            return most_expensive_hotel if most_expensive_hotel else "No hotels found within budget."
+            return most_expensive_hotel if most_expensive_hotel else "No hotels found."
         else:
             return "No properties found in the response."
     else:
         return f"Failed to fetch hotels: {response.status_code}, {response.text}"
 
+
+def get_daily_itinerary(api_key, location, start_date, end_date, trip_type):
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    # Constructing the prompt for the travel guide
+    user_prompt = f"Create a detailed daily itinerary for a {trip_type} trip to {location} from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}. Include activities, meal suggestions, and local travel tips."
+
+    # Ensuring the messages are correctly formed
+    messages = [
+        {"role": "system", "content": "You are a travel guide."},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    data = {
+        'model': 'gpt-3.5-turbo',
+        'messages': messages,
+        'max_tokens': 1500,
+        'temperature': 0.7
+    }
+
+    response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data)
+    if response.status_code == 200:
+        # Extracting the content of the latest message from the chat
+        chat_response = response.json()
+        latest_message = chat_response['choices'][0]['message']['content']
+        return latest_message.strip()
+    else:
+        error_message = f"Failed to fetch itinerary: {response.status_code} {response.text}"
+        print(error_message)
+        return error_message
+
+
+
 def main():
     start_date, end_date, budget, trip_type = get_user_input()
     trip_month = start_date.month
     openai_api_key = 'sk-proj-xKbefkCYXVMRITYejkNmT3BlbkFJ00z2ZA8hwmnCqIBxL76q'
-    serpapi_key = 'be2a08a90dda2768092654e8bdb0673c8a203c18e075f24db1f416ed8d157b27'
+    serpapi_key = 'a90447a1febd5d186512a7ba703b9cb1c5b09db7c486ff38c1596501b05f771d'
 
     if not openai_api_key or not serpapi_key:
-        print("API keys are not set.")
+        # print("API keys are not set.")
         return
 
     suggestions = get_trip_suggestions(trip_month, trip_type, openai_api_key)
     if not suggestions or suggestions[0].startswith("No suggestions"):
-        print("Failed to retrieve trip suggestions. Please try again later.")
+        # print("Failed to retrieve trip suggestions. Please try again later.")
         return
 
-    print(f"\nSuggested destinations for a {trip_type} trip in month {trip_month}:")
+    trip_options = []
+
+    # print(f"\nSuggested destinations for a {trip_type} trip in month {trip_month}:")
     for place in suggestions:
-        print("\n" + "-" * 40 + "\n")
-        print(place)
+        # print("\n" + "-" * 40 + "\n")
+        # print(place)
         if ',' in place:
+            # print("Fetching flight and hotel information...")
             remaining_budget = budget
+            total_trip_cost = 0
 
-            outbound_flight_cost = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), place)
-            if outbound_flight_cost is not None:
-                remaining_budget -= outbound_flight_cost
-
+            outbound_flight_cost = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'),
+                                                end_date.strftime('%Y-%m-%d'), place)
             return_flight_cost = find_cheapest_return_flight(serpapi_key, end_date.strftime('%Y-%m-%d'), place)
-            if return_flight_cost is not None:
-                remaining_budget -= return_flight_cost
 
-            if remaining_budget > 0:
-                hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date, serpapi_key)
-                print(f"{hotel_info}")
-            else:
-                print(f"Remaining budget (${remaining_budget:.2f}) is not sufficient for accommodation.")
-        else:
-            print(f"Skipping {place} due to format issues.")
+            if outbound_flight_cost is None or return_flight_cost is None:
+                # print(f"Skipping {place} as complete flight data is not available.")
+                continue
+
+            remaining_budget -= (outbound_flight_cost + return_flight_cost)
+            total_trip_cost += (outbound_flight_cost + return_flight_cost)
+
+            hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date,
+                                                                 serpapi_key)
+            if "Total Price" in hotel_info:
+                hotel_total_price = float(hotel_info.split('$')[-1])
+                remaining_budget -= hotel_total_price
+                total_trip_cost += hotel_total_price
+                trip_options.append((place, total_trip_cost, hotel_info))
+
+    print("\nAll available trip options with total costs:\n")
+    for idx, option in enumerate(trip_options, 1):
+        print(f"Option {idx}:")
+        print(f"Destination: {option[0]}")
+        print(f"Total Trip Cost: ${option[1]:.2f}")
+        print(option[2])
+        print("-" * 40)
+
+    if trip_options:
+        choice = input("Please enter the option number you would like to choose (e.g., 1, 2, ...): ")
+        try:
+            selected_option = trip_options[int(choice) - 1]
+            print(f"\nYou have selected:\nDestination: {selected_option[0]}")
+            print(f"Total Trip Cost: ${selected_option[1]:.2f}")
+            print(selected_option[2])
+
+            # Fetch daily itinerary from OpenAI
+            itinerary = get_daily_itinerary(openai_api_key, selected_option[0].split(",")[0], start_date, end_date,
+                                            trip_type)
+            print("\nSuggested Daily Itinerary:")
+            print(itinerary)
+        except (IndexError, ValueError):
+            print("Invalid option selected. Please run the program again and select a valid option.")
+    else:
+        print("No valid trip options are available.")
 
 if __name__ == "__main__":
     main()
