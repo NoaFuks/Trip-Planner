@@ -60,6 +60,7 @@ def get_airport_code(city_name):
             return code
     return None
 
+
 def find_flights(serpapi_key, departure_date, return_date, destination):
     city_name, _ = destination.split(',', 1)
     airport_code = get_airport_code(city_name)
@@ -82,8 +83,13 @@ def find_flights(serpapi_key, departure_date, return_date, destination):
         data = response.json()
         if 'best_flights' in data and data['best_flights']:
             cheapest_flight = min(data['best_flights'], key=lambda f: f['price'])
-            price = cheapest_flight['price']
-            return price
+            return {
+                "price": cheapest_flight['price'],
+                "departure_airport": cheapest_flight['flights'][0]['departure_airport']['name'],
+                "departure_time": cheapest_flight['flights'][0]['departure_airport']['time'],
+                "arrival_airport": cheapest_flight['flights'][0]['arrival_airport']['name'],
+                "arrival_time": cheapest_flight['flights'][0]['arrival_airport']['time']
+            }
         else:
             return None
     else:
@@ -112,8 +118,13 @@ def find_cheapest_return_flight(serpapi_key, return_date, destination):
         flights = data.get('best_flights', [])
         if flights:
             cheapest_direct_flight = min(flights, key=lambda x: x['price'])
-            total_price = cheapest_direct_flight['price']
-            return total_price
+            return {
+                "price": cheapest_direct_flight['price'],
+                "departure_airport": cheapest_direct_flight['flights'][0]['departure_airport']['name'],
+                "departure_time": cheapest_direct_flight['flights'][0]['departure_airport']['time'],
+                "arrival_airport": cheapest_direct_flight['flights'][0]['arrival_airport']['name'],
+                "arrival_time": cheapest_direct_flight['flights'][0]['arrival_airport']['time']
+            }
         else:
             return None
     else:
@@ -148,7 +159,7 @@ def find_most_expensive_hotel_within_budget(location, budget, check_in_date, che
                 if total_price > highest_total_price:
                     highest_total_price = total_price
                     most_expensive_hotel = (
-                        f"Hotel Name: {property.get('name', 'Name not provided')}\n"
+                        f"Name: {property.get('name', 'Name not provided')}\n"
                         f"Price Per Night: ${nightly_price:.2f}\n"
                         f"Total Price for {num_nights} nights: ${total_price:.2f}"
                     )
@@ -187,6 +198,7 @@ def get_daily_itinerary(api_key, location, start_date, end_date, trip_type):
         error_message = f"Failed to fetch itinerary: {response.status_code} {response.text}"
         return error_message
 
+
 def plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key):
     trip_month = start_date.month
 
@@ -201,15 +213,15 @@ def plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_k
             remaining_budget = budget
             total_trip_cost = 0
 
-            outbound_flight_cost = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'),
+            outbound_flight_info = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'),
                                                 end_date.strftime('%Y-%m-%d'), place)
-            return_flight_cost = find_cheapest_return_flight(serpapi_key, end_date.strftime('%Y-%m-%d'), place)
+            return_flight_info = find_cheapest_return_flight(serpapi_key, end_date.strftime('%Y-%m-%d'), place)
 
-            if outbound_flight_cost is None or return_flight_cost is None:
+            if outbound_flight_info is None or return_flight_info is None:
                 continue
 
-            remaining_budget -= (outbound_flight_cost + return_flight_cost)
-            total_trip_cost += (outbound_flight_cost + return_flight_cost)
+            remaining_budget -= (outbound_flight_info['price'] + return_flight_info['price'])
+            total_trip_cost += (outbound_flight_info['price'] + return_flight_info['price'])
 
             hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date,
                                                                  serpapi_key)
@@ -217,17 +229,22 @@ def plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_k
                 hotel_total_price = float(hotel_info.split('$')[-1])
                 remaining_budget -= hotel_total_price
                 total_trip_cost += hotel_total_price
-                trip_options.append((place, total_trip_cost, hotel_info))
+                trip_options.append({
+                    "destination": place,
+                    "total_cost": total_trip_cost,
+                    "hotel_info": hotel_info,
+                    "flight_info": {
+                        "outbound": outbound_flight_info,
+                        "return": return_flight_info
+                    }
+                })
 
     if trip_options:
-        return {
-            "trip_options": [
-                {"destination": option[0], "total_cost": option[1], "hotel_info": option[2]}
-                for option in trip_options
-            ]
-        }
+        return {"trip_options": trip_options}
     else:
         return {"error": "No valid trip options are available."}
+
+
 
 @app.post("/plan-trip")
 async def plan_trip_endpoint(trip_request: TripRequest):
@@ -238,6 +255,7 @@ async def plan_trip_endpoint(trip_request: TripRequest):
 
     openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
     serpapi_key = '6ee6e2f8294a4cf5e04b3fc295d0164617cc7c44d6c643def86b4f990bf3a764'
+
 
     result = plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key)
     return result
