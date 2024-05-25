@@ -19,29 +19,6 @@ class TripSelection(BaseModel):
     trip_type: str
     destination: str
 
-def generate_images(openai_api_key, prompts):
-    headers = {
-        'Authorization': f'Bearer {openai_api_key}',
-        'Content-Type': 'application/json'
-    }
-    # Assuming 'prompts' is a list of string prompts and each prompt will generate one image.
-    images_urls = []
-    for prompt in prompts:
-        data = {
-            "prompt": prompt,
-            "n": 1,  # Number of images to generate per prompt
-            "size": "1024x1024"  # Image size
-        }
-        response = requests.post('https://api.openai.com/v1/images/generations', headers=headers, json=data)
-        if response.status_code == 200:
-            image_url = response.json()['data'][0]['url']  # Assuming the first image's URL is what we need
-            images_urls.append(image_url)
-        else:
-            images_urls.append("Error generating image: " + response.text)
-    return images_urls
-
-
-
 def get_trip_suggestions(trip_month, trip_type, api_key):
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -50,7 +27,7 @@ def get_trip_suggestions(trip_month, trip_type, api_key):
     messages = [
         {"role": "system", "content": "You are a travel guide."},
         {"role": "user",
-        "content": f"List exactly 2 cities or regions ideal for a {trip_type} trip in {trip_month}, focusing on the names of the cities or regions and countries only."}
+        "content": f"List exactly 5 cities or regions ideal for a {trip_type} trip in {trip_month}, focusing on the names of the cities or regions and countries only."}
     ]
     data = {
         'model': 'gpt-3.5-turbo',
@@ -221,73 +198,72 @@ def get_daily_itinerary(api_key, location, start_date, end_date, trip_type):
         error_message = f"Failed to fetch itinerary: {response.status_code} {response.text}"
         return error_message
 
+def generate_images_from_itinerary(api_key, itinerary):
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
 
-def extract_image_prompts(itinerary):
-    """
-    Extracts key phrases from a trip itinerary to be used as image generation prompts.
-    This function assumes that the itinerary is a detailed textual description of each day's activities.
-    """
-    prompts = []
-    lines = itinerary.split('\n')
+    activities = itinerary.split('\n')
+    image_prompts = []
+    for activity in activities[:1]:  # Limit to first 4 activities for now
+        image_prompts.append(f"Create an image depicting: {activity}")
 
-    for line in lines:
-        if "visit" in line.lower() or "explore" in line.lower() or "enjoy" in line.lower():
-            # Clean and simplify the line to create a more focused prompt
-            line = re.sub(r'\s+', ' ', line)  # Remove excess whitespace
-            line = re.sub(r'[^\w\s,]', '', line)  # Remove special characters
-            # Extract the main activity
-            activity_match = re.search(r"(visit|explore|enjoy)\s+([\w\s,]+)", line, re.IGNORECASE)
-            if activity_match:
-                activity = activity_match.group(2).strip()
-                # Convert activity description into a visual prompt
-                if "visit" in activity_match.group(1).lower():
-                    prompts.append(f"Visiting {activity}, a scenic view of the main attractions.")
-                elif "explore" in activity_match.group(1).lower():
-                    prompts.append(f"Exploring {activity}, showcasing the bustling local life and unique architecture.")
-                elif "enjoy" in activity_match.group(1).lower():
-                    prompts.append(f"Enjoying a day at {activity}, with a focus on leisure and recreation activities.")
-    return prompts
+    image_urls = []
+    for prompt in image_prompts:
+        data = {
+            'model': 'image-alpha-001',
+            'prompt': prompt,
+            'n': 1,
+            'size': '1024x1024'
+        }
+        response = requests.post('https://api.openai.com/v1/images/generations', headers=headers, json=data)
+        if response.status_code == 200:
+            image_response = response.json()
+            image_urls.append(image_response['data'][0]['url'])
+        else:
+            image_urls.append(f"Failed to generate image for prompt: {prompt}")
 
+    return image_urls
 
 def plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key):
     trip_month = start_date.month
+
     suggestions = get_trip_suggestions(trip_month, trip_type, openai_api_key)
     if not suggestions or suggestions[0].startswith("No suggestions"):
         return "Failed to retrieve trip suggestions. Please try again later."
 
     trip_options = []
+
     for place in suggestions:
         if ',' in place:
             remaining_budget = budget
             total_trip_cost = 0
 
-            # Find flights
-            outbound_flight_info = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), place)
+            outbound_flight_info = find_flights(serpapi_key, start_date.strftime('%Y-%m-%d'),
+                                                end_date.strftime('%Y-%m-%d'), place)
             return_flight_info = find_cheapest_return_flight(serpapi_key, end_date.strftime('%Y-%m-%d'), place)
+
             if outbound_flight_info is None or return_flight_info is None:
                 continue
 
             remaining_budget -= (outbound_flight_info['price'] + return_flight_info['price'])
             total_trip_cost += (outbound_flight_info['price'] + return_flight_info['price'])
 
-            # Find hotel
-            hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date, serpapi_key)
+            hotel_info = find_most_expensive_hotel_within_budget(place, remaining_budget, start_date, end_date,
+                                                                 serpapi_key)
             if "Total Price" in hotel_info:
                 hotel_total_price = float(hotel_info.split('$')[-1])
                 remaining_budget -= hotel_total_price
                 total_trip_cost += hotel_total_price
-
-                itinerary = get_daily_itinerary(openai_api_key, place, start_date, end_date, trip_type)
-                image_prompts = extract_image_prompts(itinerary)  # Implement this function based on itinerary details
-                images = generate_images(openai_api_key, image_prompts)
-
                 trip_options.append({
                     "destination": place,
                     "total_cost": total_trip_cost,
                     "hotel_info": hotel_info,
-                    "flight_info": {"outbound": outbound_flight_info, "return": return_flight_info},
-                    "itinerary": itinerary,
-                    "images": images
+                    "flight_info": {
+                        "outbound": outbound_flight_info,
+                        "return": return_flight_info
+                    }
                 })
 
     if trip_options:
@@ -303,11 +279,10 @@ async def plan_trip_endpoint(trip_request: TripRequest):
     trip_type = trip_request.trip_type
 
     openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
-    serpapi_key = '56d732025933b92fbe6b89b9b413177ce1034d8e5f8cfbd460fb46c8fe4d34b3'
+    serpapi_key = '1ba8eb28b4f351c47bf5cab2b311b8689e260c35928b9835c7b10eff204ec422'
 
     result = plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key)
     return result
-
 
 @app.post("/select-trip")
 async def select_trip_endpoint(selection: TripSelection):
@@ -319,7 +294,9 @@ async def select_trip_endpoint(selection: TripSelection):
     openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
 
     itinerary = get_daily_itinerary(openai_api_key, destination.split(",")[0], start_date, end_date, trip_type)
-    return {"destination": destination, "itinerary": itinerary}
+    images = generate_images_from_itinerary(openai_api_key, itinerary)
+
+    return {"destination": destination, "itinerary": itinerary, "images": images}
 
 if __name__ == "__main__":
     import uvicorn
