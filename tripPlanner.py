@@ -19,26 +19,27 @@ class TripSelection(BaseModel):
     trip_type: str
     destination: str
 
-
-def generate_images(openai_api_key, prompts, images_per_prompt=4):
+def generate_images(openai_api_key, prompts):
     headers = {
         'Authorization': f'Bearer {openai_api_key}',
         'Content-Type': 'application/json'
     }
+    # Assuming 'prompts' is a list of string prompts and each prompt will generate one image.
     images_urls = []
     for prompt in prompts:
         data = {
             "prompt": prompt,
-            "n": images_per_prompt,  # Number of images to generate per prompt
-            "size": "256x256"  # Smaller image size (adjust based on available options)
+            "n": 1,  # Number of images to generate per prompt
+            "size": "1024x1024"  # Image size
         }
         response = requests.post('https://api.openai.com/v1/images/generations', headers=headers, json=data)
         if response.status_code == 200:
-            images = response.json()['data']
-            images_urls.extend([img['url'] for img in images])
+            image_url = response.json()['data'][0]['url']  # Assuming the first image's URL is what we need
+            images_urls.append(image_url)
         else:
-            images_urls.extend(["Error generating image: " + response.text] * images_per_prompt)
+            images_urls.append("Error generating image: " + response.text)
     return images_urls
+
 
 
 def get_trip_suggestions(trip_month, trip_type, api_key):
