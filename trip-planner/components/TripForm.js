@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 import TripOptions from './TripOptions';
-import SelectedTrip from './SelectedTrip';  // New component for displaying the selected trip details
-import styles from '../styles/TripForm.module.css'; // Assuming the CSS module is in the same directory for simplicity
+import SelectedTrip from './SelectedTrip';
+import styles from '../styles/TripForm.module.css';
 
 const TripForm = () => {
   const [startDate, setStartDate] = useState('');
@@ -12,6 +12,7 @@ const TripForm = () => {
   const [result, setResult] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [itinerary, setItinerary] = useState(null);
+  const [images, setImages] = useState([]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +26,7 @@ const TripForm = () => {
       setResult(response.data);
       setSelectedOption(null);
       setItinerary(null);
+      setImages([]);
     } catch (error) {
       console.error('Error planning trip:', error);
       setResult(null);
@@ -41,10 +43,12 @@ const TripForm = () => {
       });
       setSelectedOption(option);
       setItinerary(response.data.itinerary);
+      setImages(response.data.images);  // Set images from the response
     } catch (error) {
       console.error('Error selecting trip:', error);
       setSelectedOption(null);
       setItinerary(null);
+      setImages([]);
     }
   };
 
@@ -78,10 +82,11 @@ const TripForm = () => {
         <TripOptions options={result.trip_options} onSelectOption={handleSelectOption} />
       )}
       {selectedOption && (
-        <SelectedTrip option={selectedOption} itinerary={itinerary} />
+        <SelectedTrip option={selectedOption} itinerary={itinerary} images={images} />
       )}
     </div>
   );
 };
 
 export default TripForm;
+

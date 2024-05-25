@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styles from '../styles/SelectedTrip.module.css';
 
-const SelectedTrip = ({ option, itinerary }) => {
-  // Formats the itinerary based on the detailed function provided earlier
+const SelectedTrip = ({ option, itinerary, images }) => {
+  useEffect(() => {
+    console.log("Received itinerary:", itinerary);
+    console.log("Received images:", images);
+  }, [itinerary, images]);
+
   const formatItinerary = (itineraryText) => {
+    if (!itineraryText) {
+      return <p>No itinerary available.</p>;
+    }
+
     const days = itineraryText.split(/(?=Day \d+: \d{4}-\d{2}-\d{2})/).filter(Boolean);
     return days.map((day, index) => (
       <div key={index} className={styles.daySection}>
-        <img 
-          src={option.images[index]} 
-          alt={`Day ${index + 1}`} 
-          style={{ width: '200px', height: 'auto' }} // Adjust width as needed for smaller display
-        />
         {day.split('\n').map((item, idx) => {
           if (idx === 0) {
             return <h4 key={idx} className={styles.dayHeader}>{item.trim()}</h4>;
@@ -24,6 +27,16 @@ const SelectedTrip = ({ option, itinerary }) => {
           }
         })}
       </div>
+    ));
+  };
+
+  const displayImages = () => {
+    if (!Array.isArray(images) || images.length === 0) {
+      return <p>No images available.</p>;
+    }
+
+    return images.map((image, index) => (
+      <img key={index} src={image} alt={`Trip Image ${index + 1}`} className={styles.tripImage} />
     ));
   };
 
@@ -60,9 +73,19 @@ const SelectedTrip = ({ option, itinerary }) => {
           {formatItinerary(itinerary)}
         </div>
       </div>
+
+      <div className="box">
+        <h3 className="title">Trip Images</h3>
+        <div className={styles.imagesContainer}>
+          {displayImages()}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default SelectedTrip;
+
+
+
 
