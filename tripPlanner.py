@@ -198,33 +198,61 @@ def get_daily_itinerary(api_key, location, start_date, end_date, trip_type):
         error_message = f"Failed to fetch itinerary: {response.status_code} {response.text}"
         return error_message
 
-def generate_images_from_itinerary(api_key, itinerary):
+
+def generate_images(openai_api_key, prompts, max_images=4):
     headers = {
-        'Authorization': f'Bearer {api_key}',
+        'Authorization': f'Bearer {openai_api_key}',
         'Content-Type': 'application/json'
     }
+    images_urls = []
+    images_per_prompt = max(1, max_images // len(prompts))  # Ensure at least 1 image per prompt
 
-    activities = itinerary.split('\n')
-    image_prompts = []
-    for activity in activities[:1]:  # Limit to first 4 activities for now
-        image_prompts.append(f"Create an image depicting: {activity}")
-
-    image_urls = []
-    for prompt in image_prompts:
+    for prompt in prompts:
         data = {
-            'model': 'image-alpha-001',
-            'prompt': prompt,
-            'n': 1,
-            'size': '1024x1024'
+            "prompt": prompt,
+            "n": images_per_prompt,  # Number of images to generate per prompt
+            "size": "256x256"  # Smaller image size (adjust based on available options)
         }
         response = requests.post('https://api.openai.com/v1/images/generations', headers=headers, json=data)
         if response.status_code == 200:
-            image_response = response.json()
-            image_urls.append(image_response['data'][0]['url'])
+            images = response.json()['data']
+            images_urls.extend([img['url'] for img in images])
+            if len(images_urls) >= max_images:
+                break  # Stop if we have reached the maximum number of images
         else:
-            image_urls.append(f"Failed to generate image for prompt: {prompt}")
+            images_urls.extend(["Error generating image: " + response.text] * images_per_prompt)
+            if len(images_urls) >= max_images:
+                break  # Stop if we have reached the maximum number of images
 
-    return image_urls
+    return images_urls[:max_images]  # Return only up to the maximum number of images
+
+def extract_image_prompts(itinerary):
+    """
+    Extracts key phrases from a trip itinerary to be used as image generation prompts.
+    This function assumes that the itinerary is a detailed textual description of each day's activities.
+    """
+    prompts = []
+    lines = itinerary.split('\n')
+
+    for line in lines:
+        if "visit" in line.lower() or "explore" in line.lower() or "enjoy" in line.lower():
+            # Clean and simplify the line to create a more focused prompt
+            line = re.sub(r'\s+', ' ', line)  # Remove excess whitespace
+            line = re.sub(r'[^\w\s,]', '', line)  # Remove special characters
+            # Extract the main activity
+            activity_match = re.search(r"(visit|explore|enjoy)\s+([\w\s,]+)", line, re.IGNORECASE)
+            if activity_match:
+                activity = activity_match.group(2).strip()
+                # Convert activity description into a visual prompt
+                if "visit" in activity_match.group(1).lower():
+                    prompts.append(f"Visiting {activity}, a scenic view of the main attractions.")
+                elif "explore" in activity_match.group(1).lower():
+                    prompts.append(f"Exploring {activity}, showcasing the bustling local life and unique architecture.")
+                elif "enjoy" in activity_match.group(1).lower():
+                    prompts.append(f"Enjoying a day at {activity}, with a focus on leisure and recreation activities.")
+    return prompts
+
+
 
 def plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key):
     trip_month = start_date.month
@@ -294,7 +322,14 @@ async def select_trip_endpoint(selection: TripSelection):
     openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
 
     itinerary = get_daily_itinerary(openai_api_key, destination.split(",")[0], start_date, end_date, trip_type)
-    images = generate_images_from_itinerary(openai_api_key, itinerary)
+    prompts = extract_image_prompts(itinerary)
+    images = generate_images(openai_api_key, prompts, max_images=4)
+
+    if not itinerary:
+        itinerary = "Itinerary could not be generated."
+
+    print("Itinerary:", itinerary)
+    print("Images:", images)
 
     return {"destination": destination, "itinerary": itinerary, "images": images}
 
