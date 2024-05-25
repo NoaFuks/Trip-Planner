@@ -1,0 +1,44 @@
+.box {
+  border: 1px solid #ccc; /* Light grey border */
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  background-color: #f9f9f9; /* Light grey background */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow for depth */
+  box-sizing: border-box; /* Include padding and border in the box's size */
+}
+
+.title {
+  font-size: 20px;
+  color: #333; /* Dark grey color for text */
+  margin-bottom: 10px;
+}
+
+.content {
+  font-size: 16px;
+  color: #666; /* Medium grey color for text */
+  line-height: 1.5; /* Increased line-height for readability */
+  overflow: auto; /* Allows scrolling if content exceeds the element's box */
+}
+
+.button {
+  background-color: #007bff; /* Bootstrap primary blue */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+  display: inline-block; /* Ensures the button does not stretch */
+  margin-top: 10px; /* Adds space between the button and the content above it */
+}
+
+.button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+@media (max-width: 600px) {
+  .title, .content {
+    font-size: 14px; /* Smaller text on smaller screens */
+  }
+}

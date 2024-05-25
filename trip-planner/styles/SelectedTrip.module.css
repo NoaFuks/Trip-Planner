@@ -1,0 +1,39 @@
+/* SelectedTrip.module.css */
+.dayHeader {
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.timeHeader {
+    font-weight: bold;
+    margin-top: 10px;
+    color: #333;
+}
+
+.activityDetail {
+    margin-left: 20px;
+    display: block; /* Ensures each activity is on a new line */
+}
+
+.box {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+  }
+  
+  .title {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 5px;
+  }
+  
+  .content {
+    font-size: 16px;
+    color: #666;
+  }
+  
+  .content p {
+    margin: 5px 0;  /* Adds spacing between each line */
+  }
+  
