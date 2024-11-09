@@ -306,7 +306,7 @@ async def plan_trip_endpoint(trip_request: TripRequest):
     budget = trip_request.budget
     trip_type = trip_request.trip_type
 
-    openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
+    openai_api_key = 'put your Api key'
     serpapi_key = '1ba8eb28b4f351c47bf5cab2b311b8689e260c35928b9835c7b10eff204ec422'
 
     result = plan_trip(start_date, end_date, budget, trip_type, openai_api_key, serpapi_key)
@@ -319,7 +319,7 @@ async def select_trip_endpoint(selection: TripSelection):
     trip_type = selection.trip_type
     destination = selection.destination
 
-    openai_api_key = 'sk-proj-7WG5ayqN95xQWSP7V6XMT3BlbkFJLMYtP0g6vnwzGQhKBMTF'
+    openai_api_key = 'put your Api key'
 
     itinerary = get_daily_itinerary(openai_api_key, destination.split(",")[0], start_date, end_date, trip_type)
     prompts = extract_image_prompts(itinerary)
