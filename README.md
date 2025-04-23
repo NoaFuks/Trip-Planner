@@ -19,7 +19,6 @@ This is a full-stack **Trip Planner** application built using **Next.js** for th
 - **Frontend**: Next.js, React, Axios
 - **Backend**: FastAPI, Pydantic, Requests
 - **APIs**: OpenAI, SerpAPI, Google Flights API, Google Hotels API
-- **Database**: (Optional for extension)
 
 ## Folder Structure
 
